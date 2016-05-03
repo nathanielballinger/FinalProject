@@ -43,6 +43,8 @@ const float kFloorXMax = 100.0f;
 const float kFloorZMin = -100.0f;
 const float kFloorZMax = 100.0f;
 const float kFloorY = -0.75617 - eps;
+const float kFloorYDiff = 20.0f; // largest height difference between any two patches
+const float kSteepness = 1.0f; // largest height difference within a patch
 
 const float kCylinderRadius = 0.05f;
 
@@ -96,6 +98,11 @@ glm::mat4 floor_model_matrix = glm::mat4(1.0f);
 const float camera_height = 1.0f; // how far above terrain camera should sit
 const float camera_radius = 0.2f; // radius of bounding cylinder
 const float gravity_accel = 9.8f; // accel due to gravity
+
+float height_map[(int)kFloorXMax][(int)kFloorZMax]; // 2D array of floats reping a height at coord (x,y) on floor
+std::vector<glm::vec4> floor_vertices;
+std::vector<glm::uvec3> floor_faces;
+const float patch_resolution = 8.0f; // power of 2 that determines the size of a patch (1/patch_resolution side length)
 
 const char* vertex_shader =
     "#version 330 core\n"
@@ -473,6 +480,51 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   current_button = button;
 }
 
+void Init_Terrain(int depth) {
+  if(depth > 0) {
+    for(int i = 0; i < 3; ++i) {
+      for(int j = 0; j < 3; ++j) {
+        std::vector<std::vector<float> > perlin_matrix = Generate_Perlin_Noise(depth);
+        Add_Patch(i * kFloorXMax/3.0f, j * kFloorZMax/3.0f, depth - 1, perlin_matrix);
+      }
+    }
+  }
+
+}
+
+void Add_Patch(float x_min, float y_min, int depth, const std::vector<std::vector<float> > &perlin_matrix) {
+  if(depth > 0) {
+    for(int i = 0; i < 3; ++i) {
+      for(int j = 0; j < 3; ++j) {
+        Add_Patch(i * x_min/3.0f, j * y_min/3.0f, depth - 1);
+      }
+    }
+  }
+
+
+  int old_size = floor_vertices.size();
+  for(int i = 0; i < 3; ++i) {
+    for(int j = 0; j < 3; ++j) {
+      int x = i * x_min/3.0f;
+      int z = i * z_min/3.0f;
+      glm::vec4 vert(x, perlin_matrix[x][z], z, 1.0f);
+      floor_vertices.push_back(vert);
+    }
+  }
+  floor_faces.push_back(glm::uvec3(0 + old_size, 3 + old_size, 4 + old_size));
+  floor_faces.push_back(glm::uvec3(4 + old_size, 1 + old_size, 0 + old_size));
+  floor_faces.push_back(glm::uvec3(4 + old_size, 3 + old_size, 6 + old_size));
+  floor_faces.push_back(glm::uvec3(6 + old_size, 7 + old_size, 4 + old_size));
+  floor_faces.push_back(glm::uvec3(2 + old_size, 1 + old_size, 4 + old_size));
+  floor_faces.push_back(glm::uvec3(4 + old_size, 5 + old_size, 2 + old_size));
+  floor_faces.push_back(glm::uvec3(4 + old_size, 7 + old_size, 8 + old_size));
+  floor_faces.push_back(glm::uvec3(8 + old_size, 5 + old_size, 4 + old_size));
+}
+
+void Generate_Perlin_Noise(int depth) {
+
+}
+
 int main(int argc, char* argv[]) {
   if (!glfwInit()) exit(EXIT_FAILURE);
   glfwSetErrorCallback(ErrorCallback);
@@ -499,8 +551,7 @@ int main(int argc, char* argv[]) {
   std::cout << "Renderer: " << renderer << "\n";
   std::cout << "OpenGL version supported:" << version << "\n";
 
-  std::vector<glm::vec4> floor_vertices;
-  std::vector<glm::uvec3> floor_faces;
+  //Setup_Patch();
   floor_vertices.push_back(glm::vec4(kFloorXMin, kFloorY, kFloorZMax, 1.0f));
   floor_vertices.push_back(glm::vec4(kFloorXMax, kFloorY, kFloorZMax, 1.0f));
   floor_vertices.push_back(glm::vec4(kFloorXMax, kFloorY, kFloorZMin, 1.0f));
