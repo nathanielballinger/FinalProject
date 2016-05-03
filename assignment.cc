@@ -85,7 +85,7 @@ glm::vec3 look = glm::vec3(0.0f, 0.0f, 1.0f);
 glm::vec3 tangent = glm::cross(up, look);
 glm::vec3 center = eye + camera_distance * look;
 glm::mat3 orientation = glm::mat3(tangent, up, look);
-bool fps_mode = false;
+bool fps_mode = true;
 
 glm::mat4 view_matrix = glm::lookAt(eye, center, up);
 glm::mat4 projection_matrix =
@@ -93,14 +93,18 @@ glm::mat4 projection_matrix =
 glm::mat4 model_matrix = glm::mat4(1.0f);
 glm::mat4 floor_model_matrix = glm::mat4(1.0f);
 
+const float camera_height = 1.0f; // how far above terrain camera should sit
+const float camera_radius = 0.2f; // radius of bounding cylinder
+const float gravity_accel = 9.8f; // accel due to gravity
+
 const char* vertex_shader =
     "#version 330 core\n"
-    "uniform vec4 light_position;"
-    "in vec4 vertex_position;"
+    "uniform vec4 dir_light_direction;"
+    "in vec4 vertex_position;"   
     "out vec4 vs_light_direction;"
     "void main() {"
     "gl_Position = vertex_position;"
-    "vs_light_direction = light_position - gl_Position;"
+    "vs_light_direction = dir_light_direction;"
     "}";
 
 const char* geometry_shader =
@@ -605,10 +609,10 @@ int main(int argc, char* argv[]) {
   GLint floor_view_matrix_location = 0;
   CHECK_GL_ERROR(floor_view_matrix_location =
                      glGetUniformLocation(floor_program_id, "view"));
-  GLint floor_light_position_location = 0;
-  CHECK_GL_ERROR(floor_light_position_location =
-                     glGetUniformLocation(floor_program_id, "light_position"));
-  glm::vec4 light_position = glm::vec4(0.0f, 100.0f, 0.0f, 1.0f);
+  GLint floor_light_direction_location = 0;
+  CHECK_GL_ERROR(floor_light_direction_location =
+                     glGetUniformLocation(floor_program_id, "dir_light_direction"));
+  glm::vec4 light_direction = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
 
   while (!glfwWindowShouldClose(window)) {
     // Setup some basic window stuff.
@@ -631,7 +635,6 @@ int main(int argc, char* argv[]) {
       eye = center + camera_distance * look;
 
     view_matrix = glm::lookAt(eye, center, up);
-    light_position = glm::vec4(eye, 1.0f);
 
     aspect = static_cast<float>(window_width) / window_height;
     projection_matrix =
@@ -652,7 +655,7 @@ int main(int argc, char* argv[]) {
     CHECK_GL_ERROR(glUniformMatrix4fv(floor_view_matrix_location, 1, GL_FALSE,
                                       &view_matrix[0][0]));
     CHECK_GL_ERROR(
-        glUniform4fv(floor_light_position_location, 1, &light_position[0]));
+        glUniform4fv(floor_light_direction_location, 1, &light_direction[0]));
 
     // Draw our triangles.
     CHECK_GL_ERROR(glDrawElements(GL_TRIANGLES, floor_faces.size() * 3,
