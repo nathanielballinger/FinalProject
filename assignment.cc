@@ -99,10 +99,41 @@ const float camera_height = 1.0f; // how far above terrain camera should sit
 const float camera_radius = 0.2f; // radius of bounding cylinder
 const float gravity_accel = 9.8f; // accel due to gravity
 
-float height_map[(int)kFloorXMax][(int)kFloorZMax]; // 2D array of floats reping a height at coord (x,y) on floor
 std::vector<glm::vec4> floor_vertices;
 std::vector<glm::uvec3> floor_faces;
-const float patch_resolution = 8.0f; // power of 2 that determines the size of a patch (1/patch_resolution side length)
+
+// Final Project data
+
+
+
+const float patch_resolution = 10.0f; // the number of UnitSquares along a Patch side (square to get total number of UnitSquares)
+const float unit_square_resolution = 10.0f; // number of vertices along a UnitSquare side (square to get total number of vertices)
+
+struct UnitSquare {
+  std::vector<glm::vec4> vertices;
+  std::vector<glm::uvec3> faces;
+
+  // for merging two UnitSquares
+  unsigned bottom_indices[unit_square_resolution];
+  unsigned top_indices[unit_square_resolution];
+  unsigned right_indices[unit_square_resolution];
+  unsigned left_indices[unit_square_resolution];
+};
+
+struct Patch
+{
+  // 1D vector representing the 2D grid of UnitSquares
+  std::vector<UnitSquare> patch;
+
+  // Lists of pointers into the patch grid for purposes of merging two patches
+  UnitSquare* bottom_squares[patch_resolution];
+  UnitSquare* top_squares[patch_resolution];
+  UnitSquare* right_squares[patch_resolution];
+  UnitSquare* left_squares[patch_resolution];
+};
+
+// total vertices in rendered_world would be unit_square_resolution * patch_resolution * 9
+Patch* rendered_world[3][3]; // player is always in the patch at rendered_world[1][1]
 
 const char* vertex_shader =
     "#version 330 core\n"
@@ -480,13 +511,40 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   current_button = button;
 }
 
-void Init_Terrain(int depth) {
-  if(depth > 0) {
-    for(int i = 0; i < 3; ++i) {
-      for(int j = 0; j < 3; ++j) {
-        std::vector<std::vector<float> > perlin_matrix = Generate_Perlin_Noise(depth);
-        Add_Patch(i * kFloorXMax/3.0f, j * kFloorZMax/3.0f, depth - 1, perlin_matrix);
-      }
+void Init_Square(UnitSquare &square, glm::vec2 position) {
+  for(float i = 0; i < unit_square_resolution; ++i) {
+    float z_coord = i/unit_square_resolution + position[1];
+    for(float j = 0; j < unit_square_resolution; ++j) {
+      float x_coord = j/unit_square_resolution + position[0];
+      float y_coord = glm::perlin(glm::vec2(x_coord, z_coord), glm::vec2(patch_resolution, patch_resolution));
+      square.push_back(glm::vec4(x_coord, y_coord, z_coord, 1.0f));
+    }
+  }
+
+  for(int i = 0; i < unit_square_resolution; ++i) {
+    for(int j = 0; j < unit_square_resolution; ++j) {
+
+    }
+  }
+}
+
+void Init_Patch(Patch* patch, glm::vec2 position) {
+  for(int i = 0; i < patch_resolution; ++i) {
+    for(int j = 0; j < patch_resolution; ++j) {
+      UnitSquare curr_square;
+      glm::vec2 square_pos = glm::vec2 (i * unit_square_resolution + position[0], j * unit_square_resolution + position[1]);
+      Init_Square(curr_square, square_pos);
+      patch->push_back(curr_square);
+    }
+  }
+}
+
+void Init_Terrain() {
+  for(int i = 0; i < 3; ++i) {
+    for(int j = 0; j < 3; ++j) {
+      rendered_world[i][j] = new Patch();
+      glm::vec2 position = glm::vec2(i * patch_resolution * unit_square_resolution, j * patch_resolution * unit_square_resolution);
+      Init_Patch(rendered_world[i][j], position);
     }
   }
 
@@ -519,10 +577,6 @@ void Add_Patch(float x_min, float y_min, int depth, const std::vector<std::vecto
   floor_faces.push_back(glm::uvec3(4 + old_size, 5 + old_size, 2 + old_size));
   floor_faces.push_back(glm::uvec3(4 + old_size, 7 + old_size, 8 + old_size));
   floor_faces.push_back(glm::uvec3(8 + old_size, 5 + old_size, 4 + old_size));
-}
-
-void Generate_Perlin_Noise(int depth) {
-
 }
 
 int main(int argc, char* argv[]) {
