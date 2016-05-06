@@ -12,6 +12,7 @@
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/noise.hpp>
+#include <glm/gtc/random.hpp>
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -105,7 +106,7 @@ std::vector<glm::uvec3> floor_faces;
 
 
 const float vertex_resolution = 10.0f; // number of vertices per unit length
-const float patch_resolution = 100.0f; // number of units along a Patch side (square to get total number of unit squares)
+const float patch_resolution = 25.0f; // number of units along a Patch side (square to get total number of unit squares)
 const int vertices_per_patch_side = vertex_resolution * patch_resolution; 
 const float largest_height_diff = 100.0f; // largest allowable height difference over entire terrain (y : [-largest_height_diff/2, largest_height_diff/2])
 const float max_steepness = 1.0f; // largest allowable height difference between adjacent vertices (y : [-max_steepness/2, max_steepness/2] for any two adjacent verts)
@@ -115,12 +116,9 @@ const float scale = .007f; // James Bond makes our Perlin noise smooth
 // a square of vertices 
 struct Patch {
   // position in xz-plane (anchored at bottom-left corner)
-  glm::vec2 position;
+  glm::vec3 position;
 
-  std::vector<glm::vec4> vertices;
-  std::vector<glm::uvec3> faces;
-
-  // indices into vertices vector for merging two Patches
+  // indices into floor_vertices vector for merging two Patches
   unsigned bottom_indices[vertices_per_patch_side];
   unsigned top_indices[vertices_per_patch_side];
   unsigned right_indices[vertices_per_patch_side];
@@ -177,10 +175,10 @@ const char* floor_fragment_shader =
     "out vec4 fragment_color;"
     "void main() {"
     "vec4 pos = world_position;"
-    "float check_width = 0.25;"
+    "float check_width = .5;"
     "float i = floor(pos.x / check_width);"
     "float j  = floor(pos.z / check_width);"
-    "vec3 color = mod(i + j, 2) * vec3(1.0, 1.0, 1.0);"
+    "vec3 color = vec3(mod(i + j, 2) * 0.8, 0.3, mod(i + j + 1, 2) * 0.1);"
     "float dot_nl = dot(normalize(light_direction), normalize(face_normal));"
     "dot_nl = clamp(dot_nl, 0.0, 1.0);"
     "color = clamp(dot_nl * color, 0.0, 1.0);"
@@ -514,7 +512,7 @@ float Perlin_Noise(int num_iterations, float x, float z, float persistence) {
 
   
   for(int i = 0; i < num_iterations; ++i) {
-    noise += glm::simplex(glm::vec2(x * freq, z * freq)) * amp;
+    noise += glm::perlin(glm::vec2(x * freq, z * freq)) * amp;
     maxAmp += amp;
     amp *= persistence;
     freq *= 2;
@@ -526,42 +524,54 @@ float Perlin_Noise(int num_iterations, float x, float z, float persistence) {
 }
 
 // builds a mesh for a square patch with a bottom-left anchor at position in the xz-plane
-void Init_Patch(Patch* patch, glm::vec2 position) {
+void Init_Patch(Patch* patch, glm::vec3 position) {
 
-  int starting_index = patch->vertices.size();
+  int init_index = floor_vertices.size();
   patch->position = position;
 
   for(int i = 0; i < vertices_per_patch_side; ++i) {
 
     // setup edge vertices
-    float z_coord = i/vertex_resolution + position[1];
+    float x_coord, y_coord, z_coord;
+    z_coord = i/vertex_resolution + position[2];
     for(int j = 0; j < vertices_per_patch_side; ++j) {
-      float x_coord = j/vertex_resolution + position[0];
-      float y_coord = largest_height_diff/2 * Perlin_Noise(16, x_coord, z_coord, 0.5f);
-      patch->vertices.push_back(glm::vec4(x_coord, y_coord, z_coord, 1.0f));
+      x_coord = position[0] + j/vertex_resolution;
+      y_coord = largest_height_diff/2.0f * Perlin_Noise(8, x_coord, z_coord, 0.5f);
+      // if(j == 0)
+      //   y_coord += 1.0f;
+      std::cout << "x,z along edge " << x_coord << " " << z_coord << " at height " << y_coord << std::endl;
+      floor_vertices.push_back(glm::vec4(x_coord, y_coord, z_coord, 1.0f));
     }
 
     // setup center vertices
+    z_coord += 0.5f/vertex_resolution;
     if(i < vertices_per_patch_side - 1)
       for(int j = 0; j < vertices_per_patch_side - 1; ++j) {
-        float x_coord = j/vertex_resolution + position[0] + vertex_resolution/2;
-        float y_coord = largest_height_diff/2 * Perlin_Noise(16, x_coord, z_coord + vertex_resolution/2, 0.5f);
-        patch->vertices.push_back(glm::vec4(x_coord, y_coord, z_coord + vertex_resolution/2, 1.0f));
+        x_coord = position[0] + 0.5f/vertex_resolution + j/vertex_resolution;
+        y_coord = largest_height_diff/2.0f * Perlin_Noise(8, x_coord, z_coord, 0.5f);
+        if(i == vertices_per_patch_side/2.0f && i == j)
+          patch->position[1] = y_coord;
+        std::cout << "x,z along center " << x_coord << " " << z_coord << " at height " << y_coord << std::endl;
+        floor_vertices.push_back(glm::vec4(x_coord, y_coord, z_coord, 1.0f));
       }
   }
 
   // connect vertices
+  int curr_index, curr_center_pt_index, curr_next_row_index, starting_index;
+  starting_index = init_index;
   for(int i = 0; i < vertices_per_patch_side - 1; ++i) {
     for(int j = 0; j < vertices_per_patch_side - 1; ++j) {
-      int curr_index = i + j + starting_index; 
-      int curr_center_pt_index = curr_index + vertices_per_patch_side;
-      int curr_next_row_index = curr_center_pt_index + vertices_per_patch_side - 1;
-      patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_index, curr_index + 1));
-      patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_index + 1, curr_next_row_index + 1));
-      patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_next_row_index + 1, curr_next_row_index));
-      patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_next_row_index, curr_index));
-
+      curr_index = starting_index + j; 
+      curr_center_pt_index = curr_index + vertices_per_patch_side;
+      curr_next_row_index = curr_center_pt_index + vertices_per_patch_side - 1;
+      floor_faces.push_back(glm::uvec3(curr_center_pt_index, curr_index, curr_next_row_index));
+      floor_faces.push_back(glm::uvec3(curr_center_pt_index, curr_next_row_index, curr_next_row_index + 1));
+      floor_faces.push_back(glm::uvec3(curr_center_pt_index, curr_next_row_index + 1, curr_index + 1));
+      floor_faces.push_back(glm::uvec3(curr_center_pt_index, curr_index + 1, curr_index));
     }
+
+    starting_index = curr_center_pt_index + 1;
+
   }
 
   // setup border index data for stitching together patches
@@ -576,14 +586,16 @@ void Init_Patch(Patch* patch, glm::vec2 position) {
 }
 
 void Init_Terrain() {
-  for(int i = 0; i < 3; ++i) {
-    for(int j = 0; j < 3; ++j) {
+  for(int i = 1; i < 2; ++i) {
+    for(int j = 1; j < 2; ++j) {
       rendered_world[i][j] = new Patch();
-      glm::vec2 position = glm::vec2(j * patch_resolution, i * patch_resolution);
+      glm::vec3 position = glm::vec3(j * patch_resolution, 0.0f, i * patch_resolution);
       Init_Patch(rendered_world[i][j], position);
     }
   }
 
+  // place the eye at the center of the central patch
+  eye = glm::vec3(rendered_world[1][1]->position[0] + patch_resolution/2.0f, rendered_world[1][1]->position[1] + camera_height, rendered_world[1][1]->position[2] + patch_resolution/2.0f);
 }
 
 int main(int argc, char* argv[]) {
@@ -612,13 +624,7 @@ int main(int argc, char* argv[]) {
   std::cout << "Renderer: " << renderer << "\n";
   std::cout << "OpenGL version supported:" << version << "\n";
 
-  //Init_Terrain();
-  floor_vertices.push_back(glm::vec4(kFloorXMin, kFloorY, kFloorZMax, 1.0f));
-  floor_vertices.push_back(glm::vec4(kFloorXMax, kFloorY, kFloorZMax, 1.0f));
-  floor_vertices.push_back(glm::vec4(kFloorXMax, kFloorY, kFloorZMin, 1.0f));
-  floor_vertices.push_back(glm::vec4(kFloorXMin, kFloorY, kFloorZMin, 1.0f));
-  floor_faces.push_back(glm::uvec3(0, 1, 2));
-  floor_faces.push_back(glm::uvec3(2, 3, 0));
+  Init_Terrain();
 
   std::vector<std::string> jpeg_file_names;
   DIR* dir;
