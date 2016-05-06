@@ -3,6 +3,7 @@
 
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/common.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/detail/_fixes.hpp
+CMakeFiles/assignment.dir/assignment.cc.o: ../glm/detail/_noise.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/detail/_swizzle.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/detail/_swizzle_func.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/detail/_vectorize.hpp
@@ -69,8 +70,12 @@ CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/matrix_access.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/matrix_access.inl
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/matrix_transform.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/matrix_transform.inl
+CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/noise.hpp
+CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/noise.inl
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/quaternion.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/quaternion.inl
+CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/random.hpp
+CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/random.inl
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/type_precision.hpp
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/type_precision.inl
 CMakeFiles/assignment.dir/assignment.cc.o: ../glm/gtc/vec1.hpp

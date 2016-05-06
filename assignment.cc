@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <deque>
+#include <utility>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -108,9 +110,9 @@ std::vector<glm::uvec3> floor_faces;
 const float vertex_resolution = 10.0f; // number of vertices per unit length
 const float patch_resolution = 25.0f; // number of units along a Patch side (square to get total number of unit squares)
 const int vertices_per_patch_side = vertex_resolution * patch_resolution; 
-const float largest_height_diff = 100.0f; // largest allowable height difference over entire terrain (y : [-largest_height_diff/2, largest_height_diff/2])
+const float largest_height_diff = 50.0f; // largest allowable height difference over entire terrain (y : [-largest_height_diff/2, largest_height_diff/2])
 const float max_steepness = 1.0f; // largest allowable height difference between adjacent vertices (y : [-max_steepness/2, max_steepness/2] for any two adjacent verts)
-const float scale = .007f; // James Bond makes our Perlin noise smooth
+const float scale = .02f; 
 
 
 // a square of vertices 
@@ -126,7 +128,8 @@ struct Patch {
 };
 
 // total vertices in rendered_world would be vertices_per_patch_side^2 * 9
-Patch* rendered_world[3][3]; // player is always in the patch at rendered_world[1][1]
+std::deque<std::deque<Patch*> > rendered_world;
+glm::vec2 last_player_pos;
 
 const char* vertex_shader =
     "#version 330 core\n"
@@ -523,6 +526,10 @@ float Perlin_Noise(int num_iterations, float x, float z, float persistence) {
   return noise;
 }
 
+void stitch(unsigned edge1[], unsigned edge2[]) {
+
+}
+
 // builds a mesh for a square patch with a bottom-left anchor at position in the xz-plane
 void Init_Patch(Patch* patch, glm::vec3 position) {
 
@@ -574,28 +581,124 @@ void Init_Patch(Patch* patch, glm::vec3 position) {
 
   }
 
-  // setup border index data for stitching together patches
-  for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->bottom_indices[i] = starting_index + i;
-  for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->top_indices[i] = starting_index + (vertices_per_patch_side - 1) * vertices_per_patch_side + i;
-  for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->right_indices[i] = (starting_index + vertices_per_patch_side - 1) + vertices_per_patch_side * i;
-  for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->left_indices[i] = starting_index + vertices_per_patch_side * i;
+  // // setup border index data for stitching together patches
+  // for(int i = 0; i < vertices_per_patch_side; ++i)
+  //   patch->bottom_indices[i] = init_index + i;
+  // for(int i = 0; i < vertices_per_patch_side; ++i)
+  //   patch->top_indices[i] = init_index + (vertices_per_patch_side - 1) * vertices_per_patch_side + i;
+  // for(int i = 0; i < vertices_per_patch_side; ++i)
+  //   patch->right_indices[i] = (init_index + vertices_per_patch_side - 1) + vertices_per_patch_side * i;
+  // for(int i = 0; i < vertices_per_patch_side; ++i)
+  //   patch->left_indices[i] = init_index + vertices_per_patch_side * i;
 }
 
 void Init_Terrain() {
-  for(int i = 1; i < 2; ++i) {
-    for(int j = 1; j < 2; ++j) {
-      rendered_world[i][j] = new Patch();
+  for(int i = 0; i < 3; ++i) {
+    std::deque<Patch*> row;
+    for(int j = 0; j < 3; ++j) {
+      Patch* patch = new Patch();
+      row.push_back(patch);
       glm::vec3 position = glm::vec3(j * patch_resolution, 0.0f, i * patch_resolution);
-      Init_Patch(rendered_world[i][j], position);
+      Init_Patch(patch, position);
     }
+    rendered_world.push_back(row);
   }
+
+  // stitch patches
+  // stitch(rendered_world[0][0]->right_indices, rendered_world[0][1]->left_indices);
+  // stitch(rendered_world[0][1]->right_indices, rendered_world[0][2]->left_indices);
+  // stitch(rendered_world[1][0]->right_indices, rendered_world[1][1]->left_indices);
+  // stitch(rendered_world[1][1]->right_indices, rendered_world[1][2]->left_indices);
+  // stitch(rendered_world[2][0]->right_indices, rendered_world[2][1]->left_indices);
+  // stitch(rendered_world[2][1]->right_indices, rendered_world[2][2]->left_indices);
+
+  // stitch(rendered_world[0][0]->top_indices, rendered_world[1][0]->bottom_indices);
+  // stitch(rendered_world[1][0]->top_indices, rendered_world[2][0]->bottom_indices);
+  // stitch(rendered_world[0][1]->top_indices, rendered_world[1][1]->bottom_indices);
+  // stitch(rendered_world[1][1]->top_indices, rendered_world[2][1]->bottom_indices);
+  // stitch(rendered_world[0][2]->top_indices, rendered_world[1][2]->bottom_indices);
+  // stitch(rendered_world[1][2]->top_indices, rendered_world[2][2]->bottom_indices);
+
+
 
   // place the eye at the center of the central patch
   eye = glm::vec3(rendered_world[1][1]->position[0] + patch_resolution/2.0f, rendered_world[1][1]->position[1] + camera_height, rendered_world[1][1]->position[2] + patch_resolution/2.0f);
+  last_player_pos = glm::vec2(eye[0], eye[2]);
+}
+
+std::pair<std::pair<int,int>, std::pair<int,int> > Check_Movement(glm::vec2 player_pos, glm::vec2 last_frame_pos) {
+  return std::make_pair(std::make_pair(0,0), std::make_pair(0,0));
+}
+
+void Update_Terrain() {
+  glm::vec2 player_pos = glm::vec2(eye[0], eye[2]); // eye projected in xz plane
+
+  std::pair<std::pair<int, int>, std::pair<int,int> > location_and_destination = Check_Movement(player_pos, last_player_pos);
+  std::pair<int, int> location = location_and_destination.first;
+  std::pair<int, int> destination = location_and_destination.second;
+  std::pair<int, int> direction = std::make_pair(destination.first - location.first, destination.second - location.second);
+  if(direction.first != 0 && direction.second != 0) {
+    if(direction.second > 0) { //right
+      for(int i = location.first - 1; i < location.first + 1; ++i) {
+        if(i < rendered_world.size() && i > 0) {
+          std::deque<Patch*> row = rendered_world[i];
+          if(!row.empty() && destination.second + 1 >= row.size()) {
+            Patch *patch = new Patch();
+            Patch *prev_patch = row[row.size() - 1];
+            row.push_back(patch);
+            glm::vec3 position = glm::vec3(prev_patch->position[0] + patch_resolution, 0.0f, prev_patch->position[3]);
+            Init_Patch(patch, position);
+          }
+        }
+      }
+    }
+    else { //left
+      for(int i = location.first - 1; i < location.first + 1; ++i) {
+        if(i < rendered_world.size() && i > 0) {
+          std::deque<Patch*> row = rendered_world[i];
+          if(!row.empty() && destination.second + 1 >= row.size()) {
+            Patch *patch = new Patch();
+            Patch *prev_patch = row[0];
+            row.push_front(patch);
+            glm::vec3 position = glm::vec3(prev_patch->position[0] - patch_resolution, 0.0f, prev_patch->position[3]);
+            Init_Patch(patch, position);
+          }
+        }
+      }
+    }
+
+    if(direction.first > 0) { // top
+      std::deque<Patch*> new_row;
+      for(int j = location.second - 1; j < location.second + 1; ++j) {
+        if(j > 0 && j < rendered_world[rendered_world.size() - 1].size() && destination.first + 1 >= rendered_world.size()) {
+          Patch *patch = new Patch();
+          Patch *prev_patch = rendered_world[rendered_world.size() - 1][j];
+          glm::vec3 position = glm::vec3(prev_patch->position[0], 0.0f, prev_patch->position[3] + patch_resolution);
+          Init_Patch(patch, position);
+        }
+
+      }
+
+      rendered_world.push_back(new_row);
+    }
+    else { // bottom
+      std::deque<Patch*> new_row;
+      for(int j = location.second - 1; j < location.second + 1; ++j) {
+        if(j > 0 && j < rendered_world[0].size() && destination.first + 1 >= rendered_world.size()) {
+          Patch *patch = new Patch();
+          Patch *prev_patch = rendered_world[0][j];
+          glm::vec3 position = glm::vec3(prev_patch->position[0], 0.0f, prev_patch->position[3] - patch_resolution);
+          Init_Patch(patch, position);
+        }
+      }
+
+      rendered_world.push_front(new_row);
+    }
+
+  }
+
+
+
 }
 
 int main(int argc, char* argv[]) {
@@ -751,6 +854,8 @@ int main(int argc, char* argv[]) {
       center = eye - camera_distance * look;
     else
       eye = center + camera_distance * look;
+
+    Update_Terrain();
 
     view_matrix = glm::lookAt(eye, center, up);
 
