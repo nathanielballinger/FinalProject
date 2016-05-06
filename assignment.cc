@@ -727,26 +727,26 @@ void Update_Terrain() {
   last_player_pos = glm::vec2(eye[0], eye[2]);
 
 
-  // // Switch to the floor VAO.
-  // CHECK_GL_ERROR(glBindVertexArray(array_objects[kFloorVao]));
-  // // Generate buffer objects
-  // CHECK_GL_ERROR(glGenBuffers(kNumVbos, &buffer_objects[kFloorVao][0]));
+  // Switch to the floor VAO.
+  CHECK_GL_ERROR(glBindVertexArray(array_objects[kFloorVao]));
+  // Generate buffer objects
+  CHECK_GL_ERROR(glGenBuffers(kNumVbos, &buffer_objects[kFloorVao][0]));
 
-  // // Setup vertex data in a VBO.
-  // CHECK_GL_ERROR(
-  //     glBindBuffer(GL_ARRAY_BUFFER, buffer_objects[kFloorVao][kVertexBuffer]));
-  // CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
-  //                             sizeof(float) * floor_vertices.size() * 4,
-  //                             &floor_vertices[0], GL_STATIC_DRAW));
-  // CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
-  // CHECK_GL_ERROR(glEnableVertexAttribArray(0));
+  // Setup vertex data in a VBO.
+  CHECK_GL_ERROR(
+      glBindBuffer(GL_ARRAY_BUFFER, buffer_objects[kFloorVao][kVertexBuffer]));
+  CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+                              sizeof(float) * floor_vertices.size() * 4,
+                              &floor_vertices[0], GL_STATIC_DRAW));
+  CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
+  CHECK_GL_ERROR(glEnableVertexAttribArray(0));
 
-  // // Setup element array buffer.
-  // CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-  //                             buffer_objects[kFloorVao][kIndexBuffer]));
-  // CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-  //                             sizeof(uint32_t) * floor_faces.size() * 3,
-  //                             &floor_faces[0], GL_STATIC_DRAW));
+  // Setup element array buffer.
+  CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                              buffer_objects[kFloorVao][kIndexBuffer]));
+  CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                              sizeof(uint32_t) * floor_faces.size() * 3,
+                              &floor_faces[0], GL_STATIC_DRAW));
 
 }
 
