@@ -670,7 +670,7 @@ void Update_Terrain() {
             row.push_back(patch);
             glm::vec3 position = glm::vec3(prev_patch->position[0] + patch_resolution, 0.0f, prev_patch->position[3]);
             Init_Patch(patch, position);
-            std::cout << "New patch Init'd" << std::endl;
+            std::cout << "New right patch Init'd" << std::endl;
           }
         }
       }
@@ -679,13 +679,13 @@ void Update_Terrain() {
       for(int i = location.first - 1; i <= location.first - 1; ++i) {
         if(i < rendered_world.size() && i >= 0) {
           std::deque<Patch*> row = rendered_world[i];
-          if(!row.empty() && destination.second + 1 >= row.size()) {
+          if(!row.empty() && destination.second - 1 >= row.size()) {
             Patch *patch = new Patch();
             Patch *prev_patch = row[0];
             row.push_front(patch);
             glm::vec3 position = glm::vec3(prev_patch->position[0] - patch_resolution, 0.0f, prev_patch->position[3]);
             Init_Patch(patch, position);
-            std::cout << "New patch Init'd" << std::endl;
+            std::cout << "New left patch Init'd" << std::endl;
           }
         }
       }
@@ -699,7 +699,7 @@ void Update_Terrain() {
           Patch *prev_patch = rendered_world[rendered_world.size() - 1][j];
           glm::vec3 position = glm::vec3(prev_patch->position[0], 0.0f, prev_patch->position[3] + patch_resolution);
           Init_Patch(patch, position);
-          std::cout << "New patch Init'd" << std::endl;
+          std::cout << "New top patch Init'd" << std::endl;
         }
 
       }
@@ -710,12 +710,12 @@ void Update_Terrain() {
       // std::cout << "This should happen" << std::endl;
       std::deque<Patch*> new_row;
       for(int j = location.second - 1; j <= location.second + 1; ++j) {
-        if(j >= 0 && j < rendered_world[0].size() && destination.first - 1 >= rendered_world.size()) {
+        if(j >= 0 && j < rendered_world[0].size() && destination.first - 1 < 0) {
           Patch *patch = new Patch();
           Patch *prev_patch = rendered_world[0][j];
           glm::vec3 position = glm::vec3(prev_patch->position[0], 0.0f, prev_patch->position[3] - patch_resolution);
           Init_Patch(patch, position);
-          std::cout << "New patch Init'd" << std::endl;
+          std::cout << "New bottom patch Init'd" << std::endl;
         }
       }
 
