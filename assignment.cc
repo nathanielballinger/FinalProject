@@ -546,7 +546,6 @@ void Init_Patch(Patch* patch, glm::vec3 position) {
       y_coord = largest_height_diff/2.0f * Perlin_Noise(8, x_coord, z_coord, 0.5f);
       // if(j == 0)
       //   y_coord += 1.0f;
-      std::cout << "x,z along edge " << x_coord << " " << z_coord << " at height " << y_coord << std::endl;
       floor_vertices.push_back(glm::vec4(x_coord, y_coord, z_coord, 1.0f));
     }
 
@@ -558,7 +557,6 @@ void Init_Patch(Patch* patch, glm::vec3 position) {
         y_coord = largest_height_diff/2.0f * Perlin_Noise(8, x_coord, z_coord, 0.5f);
         if(i == vertices_per_patch_side/2.0f && i == j)
           patch->position[1] = y_coord;
-        std::cout << "x,z along center " << x_coord << " " << z_coord << " at height " << y_coord << std::endl;
         floor_vertices.push_back(glm::vec4(x_coord, y_coord, z_coord, 1.0f));
       }
   }
@@ -636,10 +634,14 @@ std::pair<std::pair<int,int>, std::pair<int,int> > Check_Movement(glm::vec2 play
   std::pair<int, int> destination;
   for (int i = 0; i < rendered_world.size(); ++i) {
     for (int j = 0; j < rendered_world[i].size(); ++j) {
-      if (Is_Bounded(player_pos, rendered_world[i][j]))
+      if (Is_Bounded(player_pos, rendered_world[i][j])) {
+        //std::cout << "New Player Pos bounded at " << i << ", " << j << std::endl;
         destination = std::make_pair(i,j);
-      if (Is_Bounded(last_frame_pos, rendered_world[i][j]))
+      }
+      if (Is_Bounded(last_frame_pos, rendered_world[i][j])) {
+        //std::cout << "Origin Player Pos bounded at " << i << ", " << j << std::endl;
         location = std::make_pair(i,j);
+      }
     }
   }
 
@@ -654,10 +656,13 @@ void Update_Terrain() {
   std::pair<int, int> location = location_and_destination.first;
   std::pair<int, int> destination = location_and_destination.second;
   std::pair<int, int> direction = std::make_pair(destination.first - location.first, destination.second - location.second);
-  if(direction.first != 0 && direction.second != 0) {
+  if(direction.first != 0 || direction.second != 0) {
+    std::cout << "Direction non-zero" << direction.first << ", " << direction.second << std::endl;
+    std::cout << "Location at " << location.first << ", " << location.second << std::endl;
+    std::cout << "Destination at " << destination.first << ", " << destination.second << std::endl << std::endl;
     if(direction.second > 0) { //right
-      for(int i = location.first - 1; i < location.first + 1; ++i) {
-        if(i < rendered_world.size() && i > 0) {
+      for(int i = location.first - 1; i <= location.first + 1; ++i) {
+        if(i < rendered_world.size() && i >= 0) {
           std::deque<Patch*> row = rendered_world[i];
           if(!row.empty() && destination.second + 1 >= row.size()) {
             Patch *patch = new Patch();
@@ -665,13 +670,14 @@ void Update_Terrain() {
             row.push_back(patch);
             glm::vec3 position = glm::vec3(prev_patch->position[0] + patch_resolution, 0.0f, prev_patch->position[3]);
             Init_Patch(patch, position);
+            std::cout << "New patch Init'd" << std::endl;
           }
         }
       }
     }
     else { //left
-      for(int i = location.first - 1; i < location.first + 1; ++i) {
-        if(i < rendered_world.size() && i > 0) {
+      for(int i = location.first - 1; i <= location.first - 1; ++i) {
+        if(i < rendered_world.size() && i >= 0) {
           std::deque<Patch*> row = rendered_world[i];
           if(!row.empty() && destination.second + 1 >= row.size()) {
             Patch *patch = new Patch();
@@ -679,6 +685,7 @@ void Update_Terrain() {
             row.push_front(patch);
             glm::vec3 position = glm::vec3(prev_patch->position[0] - patch_resolution, 0.0f, prev_patch->position[3]);
             Init_Patch(patch, position);
+            std::cout << "New patch Init'd" << std::endl;
           }
         }
       }
@@ -686,12 +693,13 @@ void Update_Terrain() {
 
     if(direction.first > 0) { // top
       std::deque<Patch*> new_row;
-      for(int j = location.second - 1; j < location.second + 1; ++j) {
-        if(j > 0 && j < rendered_world[rendered_world.size() - 1].size() && destination.first + 1 >= rendered_world.size()) {
+      for(int j = location.second - 1; j <= location.second + 1; ++j) {
+        if(j >= 0 && j < rendered_world[rendered_world.size() - 1].size() && destination.first + 1 >= rendered_world.size()) {
           Patch *patch = new Patch();
           Patch *prev_patch = rendered_world[rendered_world.size() - 1][j];
           glm::vec3 position = glm::vec3(prev_patch->position[0], 0.0f, prev_patch->position[3] + patch_resolution);
           Init_Patch(patch, position);
+          std::cout << "New patch Init'd" << std::endl;
         }
 
       }
@@ -699,13 +707,15 @@ void Update_Terrain() {
       rendered_world.push_back(new_row);
     }
     else { // bottom
+      // std::cout << "This should happen" << std::endl;
       std::deque<Patch*> new_row;
-      for(int j = location.second - 1; j < location.second + 1; ++j) {
-        if(j > 0 && j < rendered_world[0].size() && destination.first + 1 >= rendered_world.size()) {
+      for(int j = location.second - 1; j <= location.second + 1; ++j) {
+        if(j >= 0 && j < rendered_world[0].size() && destination.first - 1 >= rendered_world.size()) {
           Patch *patch = new Patch();
           Patch *prev_patch = rendered_world[0][j];
           glm::vec3 position = glm::vec3(prev_patch->position[0], 0.0f, prev_patch->position[3] - patch_resolution);
           Init_Patch(patch, position);
+          std::cout << "New patch Init'd" << std::endl;
         }
       }
 
@@ -714,25 +724,29 @@ void Update_Terrain() {
 
   }
 
+  last_player_pos = glm::vec2(eye[0], eye[2]);
 
-  // Switch to the floor VAO.
-  CHECK_GL_ERROR(glBindVertexArray(array_objects[kFloorVao]));
 
-  // Setup vertex data in a VBO.
-  CHECK_GL_ERROR(
-      glBindBuffer(GL_ARRAY_BUFFER, buffer_objects[kFloorVao][kVertexBuffer]));
-  CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
-                              sizeof(float) * floor_vertices.size() * 4,
-                              &floor_vertices[0], GL_STATIC_DRAW));
-  CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
-  CHECK_GL_ERROR(glEnableVertexAttribArray(0));
+  // // Switch to the floor VAO.
+  // CHECK_GL_ERROR(glBindVertexArray(array_objects[kFloorVao]));
+  // // Generate buffer objects
+  // CHECK_GL_ERROR(glGenBuffers(kNumVbos, &buffer_objects[kFloorVao][0]));
 
-  // Setup element array buffer.
-  CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-                              buffer_objects[kFloorVao][kIndexBuffer]));
-  CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                              sizeof(uint32_t) * floor_faces.size() * 3,
-                              &floor_faces[0], GL_STATIC_DRAW));
+  // // Setup vertex data in a VBO.
+  // CHECK_GL_ERROR(
+  //     glBindBuffer(GL_ARRAY_BUFFER, buffer_objects[kFloorVao][kVertexBuffer]));
+  // CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+  //                             sizeof(float) * floor_vertices.size() * 4,
+  //                             &floor_vertices[0], GL_STATIC_DRAW));
+  // CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
+  // CHECK_GL_ERROR(glEnableVertexAttribArray(0));
+
+  // // Setup element array buffer.
+  // CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+  //                             buffer_objects[kFloorVao][kIndexBuffer]));
+  // CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+  //                             sizeof(uint32_t) * floor_faces.size() * 3,
+  //                             &floor_faces[0], GL_STATIC_DRAW));
 
 }
 
