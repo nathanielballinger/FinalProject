@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/noise.hpp>
 #include <glm/gtx/component_wise.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -105,7 +106,7 @@ std::vector<glm::uvec3> floor_faces;
 
 const float vertex_resolution = 10.0f; // number of vertices per unit length
 const float patch_resolution = 100.0f; // number of units along a Patch side (square to get total number of unit squares)
-const float vertices_per_patch_side = vertex_resolution * patch_resolution; 
+const int vertices_per_patch_side = vertex_resolution * patch_resolution; 
 const float largest_height_diff = 100.0f; // largest allowable height difference over entire terrain (y : [-largest_height_diff/2, largest_height_diff/2])
 const float max_steepness = 1.0f; // largest allowable height difference between adjacent vertices (y : [-max_steepness/2, max_steepness/2] for any two adjacent verts)
 const float scale = .007f; // James Bond makes our Perlin noise smooth
@@ -120,13 +121,13 @@ struct Patch {
   std::vector<glm::uvec3> faces;
 
   // indices into vertices vector for merging two Patches
-  unsigned bottom_indices[patch_resolution];
-  unsigned top_indices[patch_resolution];
-  unsigned right_indices[patch_resolution];
-  unsigned left_indices[patch_resolution];
+  unsigned bottom_indices[vertices_per_patch_side];
+  unsigned top_indices[vertices_per_patch_side];
+  unsigned right_indices[vertices_per_patch_side];
+  unsigned left_indices[vertices_per_patch_side];
 };
 
-// total vertices in rendered_world would be patch_resolution^2 * 9
+// total vertices in rendered_world would be vertices_per_patch_side^2 * 9
 Patch* rendered_world[3][3]; // player is always in the patch at rendered_world[1][1]
 
 const char* vertex_shader =
@@ -513,7 +514,7 @@ float Perlin_Noise(int num_iterations, float x, float z, float persistence) {
 
   
   for(int i = 0; i < num_iterations; ++i) {
-    noise += glm::simplex_noise(x * freq, y * freq) * amp;
+    noise += glm::simplex(glm::vec2(x * freq, z * freq)) * amp;
     maxAmp += amp;
     amp *= persistence;
     freq *= 2;
@@ -527,7 +528,7 @@ float Perlin_Noise(int num_iterations, float x, float z, float persistence) {
 // builds a mesh for a square patch with a bottom-left anchor at position in the xz-plane
 void Init_Patch(Patch* patch, glm::vec2 position) {
 
-  int starting_index = vertices.size();
+  int starting_index = patch->vertices.size();
   patch->position = position;
 
   for(int i = 0; i < vertices_per_patch_side; ++i) {
@@ -544,7 +545,7 @@ void Init_Patch(Patch* patch, glm::vec2 position) {
     if(i < vertices_per_patch_side - 1)
       for(int j = 0; j < vertices_per_patch_side - 1; ++j) {
         float x_coord = j/vertex_resolution + position[0] + vertex_resolution/2;
-        float y_coord = largest_height_diff/2 * Perlin_Noise(16, x_coord, z_coord + vertex_resolution/2, 0.5f));
+        float y_coord = largest_height_diff/2 * Perlin_Noise(16, x_coord, z_coord + vertex_resolution/2, 0.5f);
         patch->vertices.push_back(glm::vec4(x_coord, y_coord, z_coord + vertex_resolution/2, 1.0f));
       }
   }
@@ -553,8 +554,8 @@ void Init_Patch(Patch* patch, glm::vec2 position) {
   for(int i = 0; i < vertices_per_patch_side - 1; ++i) {
     for(int j = 0; j < vertices_per_patch_side - 1; ++j) {
       int curr_index = i + j + starting_index; 
-      int curr_center_pt_index = curr_index + patch_resolution;
-      int curr_next_row_index = curr_center_pt_index + patch_resolution - 1;
+      int curr_center_pt_index = curr_index + vertices_per_patch_side;
+      int curr_next_row_index = curr_center_pt_index + vertices_per_patch_side - 1;
       patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_index, curr_index + 1));
       patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_index + 1, curr_next_row_index + 1));
       patch->faces.push_back(glm::uvec3(curr_center_pt_index, curr_next_row_index + 1, curr_next_row_index));
@@ -567,11 +568,11 @@ void Init_Patch(Patch* patch, glm::vec2 position) {
   for(int i = 0; i < vertices_per_patch_side; ++i)
     patch->bottom_indices[i] = starting_index + i;
   for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->top_indices[i] = starting_index + (patch_resolution - 1) * patch_resolution + i;
+    patch->top_indices[i] = starting_index + (vertices_per_patch_side - 1) * vertices_per_patch_side + i;
   for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->right_indices[i] = (starting_index + patch_resolution - 1) + patch_resolution * i;
+    patch->right_indices[i] = (starting_index + vertices_per_patch_side - 1) + vertices_per_patch_side * i;
   for(int i = 0; i < vertices_per_patch_side; ++i)
-    patch->left_indices[i] = starting_index + patch_resolution * i;
+    patch->left_indices[i] = starting_index + vertices_per_patch_side * i;
 }
 
 void Init_Terrain() {
