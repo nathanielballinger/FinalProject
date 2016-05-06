@@ -107,8 +107,8 @@ std::vector<glm::uvec3> floor_faces;
 // Final Project data
 
 
-const float vertex_resolution = 10.0f; // number of vertices per unit length
-const float patch_resolution = 25.0f; // number of units along a Patch side (square to get total number of unit squares)
+const float vertex_resolution = 0.5f; // number of vertices per unit length
+const float patch_resolution = 50.0f; // number of units along a Patch side (square to get total number of unit squares)
 const int vertices_per_patch_side = vertex_resolution * patch_resolution; 
 const float largest_height_diff = 50.0f; // largest allowable height difference over entire terrain (y : [-largest_height_diff/2, largest_height_diff/2])
 const float max_steepness = 1.0f; // largest allowable height difference between adjacent vertices (y : [-max_steepness/2, max_steepness/2] for any two adjacent verts)
@@ -181,7 +181,7 @@ const char* floor_fragment_shader =
     "float check_width = .5;"
     "float i = floor(pos.x / check_width);"
     "float j  = floor(pos.z / check_width);"
-    "vec3 color = vec3(mod(i + j, 2) * 0.8, 0.3, mod(i + j + 1, 2) * 0.1);"
+    "vec3 color = vec3(.4, pos.y * .1, .4);"
     "float dot_nl = dot(normalize(light_direction), normalize(face_normal));"
     "dot_nl = clamp(dot_nl, 0.0, 1.0);"
     "color = clamp(dot_nl * color, 0.0, 1.0);"
@@ -626,8 +626,25 @@ void Init_Terrain() {
   last_player_pos = glm::vec2(eye[0], eye[2]);
 }
 
+bool Is_Bounded(glm::vec2 pos, Patch *p) {
+  return pos[0] >= p->position[0] && pos[0] < p->position[0] + patch_resolution // x bounded
+      && pos[1] >= p->position[2] && pos[1] < p->position[2] + patch_resolution; // z bounded
+}
+
 std::pair<std::pair<int,int>, std::pair<int,int> > Check_Movement(glm::vec2 player_pos, glm::vec2 last_frame_pos) {
-  return std::make_pair(std::make_pair(0,0), std::make_pair(0,0));
+  std::pair<int, int> location;
+  std::pair<int, int> destination;
+  for (int i = 0; i < rendered_world.size(); ++i) {
+    for (int j = 0; j < rendered_world[i].size(); ++j) {
+      if (Is_Bounded(player_pos, rendered_world[i][j]))
+        destination = std::make_pair(i,j);
+      if (Is_Bounded(last_frame_pos, rendered_world[i][j]))
+        location = std::make_pair(i,j);
+    }
+  }
+
+
+  return std::make_pair(location, destination);
 }
 
 void Update_Terrain() {
@@ -698,6 +715,24 @@ void Update_Terrain() {
   }
 
 
+  // Switch to the floor VAO.
+  CHECK_GL_ERROR(glBindVertexArray(array_objects[kFloorVao]));
+
+  // Setup vertex data in a VBO.
+  CHECK_GL_ERROR(
+      glBindBuffer(GL_ARRAY_BUFFER, buffer_objects[kFloorVao][kVertexBuffer]));
+  CHECK_GL_ERROR(glBufferData(GL_ARRAY_BUFFER,
+                              sizeof(float) * floor_vertices.size() * 4,
+                              &floor_vertices[0], GL_STATIC_DRAW));
+  CHECK_GL_ERROR(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0));
+  CHECK_GL_ERROR(glEnableVertexAttribArray(0));
+
+  // Setup element array buffer.
+  CHECK_GL_ERROR(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                              buffer_objects[kFloorVao][kIndexBuffer]));
+  CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                              sizeof(uint32_t) * floor_faces.size() * 3,
+                              &floor_faces[0], GL_STATIC_DRAW));
 
 }
 
@@ -753,9 +788,6 @@ int main(int argc, char* argv[]) {
 
   // Setup our VAOs.
   CHECK_GL_ERROR(glGenVertexArrays(kNumVaos, array_objects));
-
-  // Setup the object array object.
-
   // Switch to the floor VAO.
   CHECK_GL_ERROR(glBindVertexArray(array_objects[kFloorVao]));
 
@@ -777,6 +809,8 @@ int main(int argc, char* argv[]) {
   CHECK_GL_ERROR(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                               sizeof(uint32_t) * floor_faces.size() * 3,
                               &floor_faces[0], GL_STATIC_DRAW));
+
+  // Setup the object array object.
 
   // Triangle shaders
 
